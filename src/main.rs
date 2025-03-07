@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{hint::black_box, time::Instant};
 
 use rand::Rng;
 
@@ -19,7 +19,6 @@ pub struct Tree<K: Ord, V> {
     pub nodes: Vec<Node<K, V>>,
     pub root: usize
 }
-
 
 
 impl<K: Ord + Clone + std::fmt::Debug, V: Clone + std::fmt::Debug> Tree<K,V> {
@@ -110,8 +109,6 @@ impl<K: Ord + Clone + std::fmt::Debug, V: Clone + std::fmt::Debug> Tree<K,V> {
     }
 
     fn rotate_right(&mut self, rotation_root: usize) {
-        
-
         let root_node = self.nodes.get(rotation_root).unwrap();
         
         if root_node.left.is_none() {
@@ -131,11 +128,15 @@ impl<K: Ord + Clone + std::fmt::Debug, V: Clone + std::fmt::Debug> Tree<K,V> {
         let left_node_mut = self.nodes.get_mut(left_node_index).unwrap();
         left_node_mut.right = Some(rotation_root);
         left_node_mut.parent = root_node_parent;
+        
 
         let root_node_mut = self.nodes.get_mut(rotation_root).unwrap();
         root_node_mut.left = left_right_node;
         root_node_mut.parent = Some(left_node_index);
 
+
+
+        
         
         
         if rotation_root == self.root {
@@ -148,6 +149,10 @@ impl<K: Ord + Clone + std::fmt::Debug, V: Clone + std::fmt::Debug> Tree<K,V> {
                 parent_mut.right = Some(left_node_index);
             }
         }
+
+        self.update_height(rotation_root);
+        self.update_height(left_node_index);
+
 
     }
 
@@ -188,6 +193,8 @@ impl<K: Ord + Clone + std::fmt::Debug, V: Clone + std::fmt::Debug> Tree<K,V> {
                 parent_mut.right = Some(right_node_index);
             }
         }
+        self.update_height(rotation_root);
+        self.update_height(right_node_index);
 
         
 
@@ -197,14 +204,15 @@ impl<K: Ord + Clone + std::fmt::Debug, V: Clone + std::fmt::Debug> Tree<K,V> {
         match self.balance_factor(node).unwrap() {
             -2 => {
                 let right_node = self.nodes.get(node).unwrap().right.unwrap();
-                if self.balance_factor(right_node).unwrap() == 1 {
+                if self.balance_factor(right_node).unwrap() == -1 {
                     self.rotate_right(right_node);
                 }
                 self.rotate_left(node);
+                
             },
             2 => {
-                let left_node = self.nodes.get(node).unwrap().left.unwrap();
-                if self.balance_factor(left_node).unwrap() == -1 {
+                                let left_node = self.nodes.get(node).unwrap().left.unwrap();
+                if self.balance_factor(left_node).unwrap() == 1 {
                     self.rotate_left(left_node);
                 }
                 self.rotate_right(node);
@@ -241,6 +249,7 @@ impl<'a, K: 'a + Ord + Clone, V: 'a + Clone> Iterator for TreeIter<'a, K, V> {
                     return Some(node);
                 } else if let Some(right) = node.right {
                     self.current_node = right;
+                    self.going_left = true;
                     self.cur_emitted = false;
                     continue;
                 }else {
@@ -315,12 +324,12 @@ pub struct Marker {
     node_corresponding: usize
 }
 
-pub fn basic_tree() -> Tree<i32, String> {
+pub fn basic_tree() -> Tree<i64, i8> {
     return Tree {
         nodes: vec![
             Node {
                 key: 4,
-                value: String::from("D"),
+                value: 2,
                 left: None, 
                 right: None,
                 height: 0,
@@ -331,60 +340,46 @@ pub fn basic_tree() -> Tree<i32, String> {
     };
 }
 
-pub fn time_test(starting_size: usize, insertions: usize, tree: &mut Tree<i32, String>) {
+pub fn time_test(starting_size: usize, insertions: usize, tree: &mut Tree<i64, i8>) -> (f64, f64){
     let mut randoms = vec![];
     let mut rng = rand::rng();
-    let letters = vec!["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
     if starting_size > tree.nodes.len() {
         for _ in 0..starting_size - tree.nodes.len() {
-            randoms.push((rng.random_range(-10000000..100000000), String::from(letters[rng.random_range(0..=25)])));
+            randoms.push((rng.random_range(-1000000000..10000000000), rng.random_range(-10..10)));
         }
         for r in randoms {
             tree.insert(r.0, r.1);
         }
     }
     let mut randoms = vec![];
+    let mut nanos_insertion = 0;
+    let mut nanos_minimumfinding = 0;
     for _ in 0..insertions {
-        randoms.push((rng.random_range(-10000000..100000000), String::from(letters[rng.random_range(0..=25)])));
+        randoms.push((rng.random_range(-1000000000..10000000000), rng.random_range(-10..10)));
     }
-    let time = Instant::now();
+    
     for r in randoms {
+        let time = Instant::now();
         tree.insert(r.0, r.1);
+        nanos_insertion += time.elapsed().as_nanos();
+
+
+        let time = Instant::now();
+        let _min = tree.iter().next();
+        black_box(_min);
+        nanos_minimumfinding += time.elapsed().as_nanos();
     }
-    let time_to_insert = time.elapsed();
     println!("\n------- TIME TAKEN FOR {} INSERTIONS (WITH A TREE SIZE {}) ------", insertions, starting_size);
-    println!("{:?} ms", time_to_insert.as_micros() as f64/1000.0);
+    println!("{:?} micros", nanos_insertion as f64/1000.0);
+
+    println!("\n------- TIME TAKEN FOR {} MIN FINDINGS (WITH A TREE SIZE {}) ------", insertions, starting_size);
+    println!("{:?} micros", nanos_minimumfinding as f64/1000.0);
+
+    return (nanos_insertion as f64/1000.0, nanos_minimumfinding as f64/1000.0);
 
 }
-fn main() {
-    let mut tree = Tree {
-        nodes: vec![
-            Node {
-                key: 4,
-                value: String::from("D"),
-                left: None, 
-                right: None,
-                height: 0,
-                parent: None,
-            },
-        ],
-        root: 0,
-    };
 
-    let mut rng = rand::rng();
-    let letters = vec!["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
-    let mut randoms = vec![];
-    for _ in 0..100 {
-        randoms.push((rng.random_range(-10000000..100000000), String::from(letters[rng.random_range(0..=25)])));
-    }
-    let time = Instant::now();
-    for r in randoms {
-        tree.insert(r.0, r.1);
-    }
-    let time_to_insert = time.elapsed();
-
-    
-
+pub fn display_tree<K: std::fmt::Debug + Ord + Clone, V: std::fmt::Debug + Clone>(tree: Tree<K, V>) {
     let root = tree.nodes.get(tree.root).unwrap();
     let mut root_node = NodeForRendering::new(root.key.clone(), root.value.clone(), vec![]);
     let mut stack = vec![Marker {
@@ -425,32 +420,96 @@ fn main() {
             });
         }
     }
-    println!("\n------- ITERATED IN ORDER -------");
-    for i in tree.iter() {
-        println!("{:?}", i);
-    }
-    println!("\n------- TREE -------");
     for line in render_as_tree::render(&root_node).iter() {
         println!("{}", line);
     }
-    println!("\n------- TIME TAKEN FOR FIRST 100 INSERTIONS ------");
-    println!("{:?} ms", time_to_insert.as_micros() as f64/1000.0);
+
+}
+
+
+fn main() {
     let mut tree = basic_tree();
-    time_test(0,1000, &mut tree);
-    time_test(1000,1000, &mut tree);
-    time_test(2000,1000, &mut tree);
-    time_test(4000,1000, &mut tree);
-    time_test(8000,1000, &mut tree);
-    time_test(16000,1000, &mut tree);
-    time_test(32000,1000, &mut tree);
-    time_test(64000,1000, &mut tree);
-    time_test(128000,1000, &mut tree);
-    time_test(256000,1000, &mut tree);
-    time_test(512000,1000, &mut tree);
-    time_test(1024000,1000, &mut tree);
-    time_test(2048000,1000, &mut tree);
-    time_test(4096000,1000, &mut tree);
-    time_test(8192000,1000, &mut tree);
-    time_test(16384000,1000, &mut tree);
-    time_test(32768000,1000, &mut tree);
+    let sizes = [
+        0,
+        1000,
+        2000,
+        4000,
+        8000,
+        16000,
+        32000,
+        64000,
+        128000,
+        256000,
+        512000,
+        1024000,
+        2048000,
+        4096000,
+        8192000,
+        16384000
+    ];
+
+    let mut times = vec![];
+
+    for size in sizes.iter() {
+        times.push(time_test(*size, 10, &mut tree));
+    }
+
+    let (mut insertions, mut mins): (Vec<f64>, Vec<f64>) = (vec![], vec![]);
+
+    for time in times.iter() {
+        insertions.push(time.0);
+        mins.push(time.1);
+    }
+
+    println!("{:?} {:?}", insertions, mins);
+
+
+
+
+
+    let mut rng = rand::rng();
+    let mut randoms = vec![];
+    for _ in 0..30000 {
+        randoms.push((rng.random_range(-1000000000..10000000000), rng.random_range(-10..10)));
+    }
+    
+
+    
+    let mut tree: Tree<i64, i64> = Tree {
+        root: 0,
+        nodes: vec![
+            Node {
+                key: randoms[0].0,
+                value: randoms[0].1,
+                left: None,
+                right: None,
+                height: 0,
+                parent: None
+            }
+        ]
+    };
+
+    
+    let time = Instant::now();
+    for (i, r) in randoms.iter().enumerate() {
+        if i == 0 {continue};
+        tree.insert(r.0, r.1);
+    }
+    let sorted: Vec<i64> = tree.iter().map(|x| x.0.clone()).collect();
+    let time_taken_by_btree = time.elapsed().as_millis();
+
+    let time = Instant::now();
+    let mut sorted_2: Vec<i64> = randoms.clone().iter().map(|x| x.0).collect();
+    sorted_2.sort();
+    let time_taken_by_normal = time.elapsed().as_nanos() as f64/1000_000.0;
+
+    assert_eq!(sorted, sorted_2);
+
+    println!("------ AVL TREE TIME TAKEN ------");
+    println!("{} ms", time_taken_by_btree);
+    println!("------ RUST SORT TIME TAKEN ------");
+    println!("{} ms", time_taken_by_normal);
+
+
+
 }
