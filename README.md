@@ -4,6 +4,8 @@ or run the executable that is prebuilt
 `./target/release/WBT`
 
 the source code is sortof a mess, sorry about that one.
+lines 1-284 are the actual tree algorithm, the rest are just testing/display stuffs
+
 
 my tree is much slower than the rust one, this is expected, considering rust sort is also `O(log(n))` but much more optimized.
 
