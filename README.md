@@ -1,3 +1,4 @@
+## this is an implementation of an AVL self-balancing tree
 # to run
 either install rust and use `cargo run --release`
 or run the executable that is prebuilt
